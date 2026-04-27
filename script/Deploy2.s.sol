@@ -4,29 +4,38 @@ pragma solidity ^0.8.34;
 import {Script} from "forge-std/Script.sol";
 import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 import {EntryPointScript} from "./EntryPoint.s.sol";
+import {PaymasterScript} from "./Paymaster.s.sol";
 import {AccountFactoryScript} from "./AccountFactory.s.sol";
 import {Account as Acc} from "../src/Account.sol";
 
-contract DeployScript is Script {
+/// @title With Paymaster
+contract Deploy2Script is Script {
     EntryPointScript public eps;
+    PaymasterScript public pms;
     AccountFactoryScript public afs;
 
+    address payable bundler; // test only
     address payable user;
 
     function setUp() public {
-        user = payable(vm.promptAddress("User address"));
+        // user = payable(vm.promptAddress("User address"));
+        user = payable(makeAddr("User")); // test only
+        bundler = payable(makeAddr("Bundler")); // test only
 
         eps = new EntryPointScript();
+        pms = new PaymasterScript();
         afs = new AccountFactoryScript();
     }
 
     function run() public {
         eps.run();
+        pms.run();
         afs.run();
 
         // Below code is to test EntryPoint and AccountFactory:
 
         address epAddress = address(eps.ep());
+        address pmAddress = address(pms.pm());
         address afAddress = address(afs.af());
 
         address userAccountAddress = vm.computeCreateAddress(afAddress, afs.af().nonces(afAddress)); // address(userAccount)
@@ -35,6 +44,7 @@ contract DeployScript is Script {
 
         uint128 callGasLimit = 2_000_000;
         uint128 verificationGasLimit = 2_000_000;
+        uint128 postOpGasLimit = 2_000_000; // for Paymaster's postOp gas limit
         uint128 maxFeePerGas = 10 gwei;
         uint128 maxPriorityFeePerGas = 5 gwei;
 
@@ -44,22 +54,23 @@ contract DeployScript is Script {
             nonce: eps.ep().getNonce(userAccountAddress, 0),
             initCode: abi.encodePacked(afAddress, createUserAccount),
             callData: incrementUserAccount,
-            accountGasLimits: bytes32(uint256(verificationGasLimit) << 128 | callGasLimit),
+            accountGasLimits: bytes32(abi.encodePacked(verificationGasLimit, callGasLimit)),
             preVerificationGas: 50_000,
-            gasFees: bytes32(uint256(maxPriorityFeePerGas) << 128 | maxFeePerGas),
-            paymasterAndData: "",
+            gasFees: bytes32(abi.encodePacked(maxPriorityFeePerGas, maxFeePerGas)),
+            paymasterAndData: abi.encodePacked(pmAddress, verificationGasLimit, postOpGasLimit),
             signature: ""
         });
 
-        vm.deal(user, 2 ether); // test only
-        vm.startBroadcast(user);
-        if (eps.ep().balanceOf(userAccountAddress) == 0) {
-            eps.ep().depositTo{value: user.balance}(userAccountAddress);
+        vm.deal(bundler, 2 ether); // test only
+        vm.startBroadcast(bundler);
+        if (eps.ep().balanceOf(pmAddress) == 0) {
+            eps.ep().depositTo{value: bundler.balance}(pmAddress);
         }
-        eps.ep().handleOps(ops, user);
+        eps.ep().handleOps(ops, bundler);
         vm.stopBroadcast();
 
-        assert(Acc(userAccountAddress).number() == 1); // increased number once
+        require(Acc(userAccountAddress).number() == 1, "1 - Must have increased number once");
+        require(bundler.balance == 2 ether - eps.ep().balanceOf(pmAddress), "2 - Must compensate bundler");
 
         // Test call user account again (increment), now we do not set the initCode:
 
@@ -68,17 +79,18 @@ contract DeployScript is Script {
             nonce: eps.ep().getNonce(userAccountAddress, 0),
             initCode: "", // abi.encodePacked(afAddress, createUserAccount), // user account has been created
             callData: incrementUserAccount,
-            accountGasLimits: bytes32(uint256(verificationGasLimit) << 128 | callGasLimit),
+            accountGasLimits: bytes32(abi.encodePacked(verificationGasLimit, callGasLimit)),
             preVerificationGas: 50_000,
-            gasFees: bytes32(uint256(maxPriorityFeePerGas) << 128 | maxFeePerGas),
-            paymasterAndData: "",
+            gasFees: bytes32(abi.encodePacked(maxPriorityFeePerGas, maxFeePerGas)),
+            paymasterAndData: abi.encodePacked(pmAddress, verificationGasLimit, postOpGasLimit),
             signature: ""
         });
 
-        vm.startBroadcast(user);
-        eps.ep().handleOps(ops, user);
+        vm.startBroadcast(bundler);
+        eps.ep().handleOps(ops, bundler);
         vm.stopBroadcast();
 
-        assert(Acc(userAccountAddress).number() == 2); // increased number twice
+        require(Acc(userAccountAddress).number() == 2, "3 - Must have increased number twice");
+        require(bundler.balance == 2 ether - eps.ep().balanceOf(pmAddress), "4 - Must compensate bundler");
     }
 }

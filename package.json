@@ -1,0 +1,20 @@
+{
+  "name": "smart-accounts-erc-4337",
+  "version": "1.0.0",
+  "description": "",
+  "main": "config.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node foundry.js",
+    "sepolia": "node sepolia.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.28.2",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "viem": "^2.48.4"
+  }
+}

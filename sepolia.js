@@ -64,7 +64,7 @@ import { ACCOUNT, ACCOUNT_FACTORY, ENTRY_POINT, PAYMASTER, SEPOLIA } from "./con
     params: [userOp, ENTRY_POINT.sepolia.address],
   });
 
-  const test = setTimeout(async () => {
+  setTimeout(async () => {
     const { transactionHash } = await SEPOLIA.request({
       method: "eth_getUserOperationByHash",
       params: [operationHash],
@@ -79,7 +79,5 @@ import { ACCOUNT, ACCOUNT_FACTORY, ENTRY_POINT, PAYMASTER, SEPOLIA } from "./con
         functionName: "number",
       })
     });
-
-    clearTimeout(test);
   }, 12_000);
 })();

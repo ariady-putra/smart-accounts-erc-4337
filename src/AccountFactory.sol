@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.34;
 
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
 import {Account as Acc} from "./Account.sol";
 
@@ -31,13 +32,16 @@ contract AccountFactory is Nonces {
         if (address(0) != accountAddress) return accountAddress;
 
         bytes memory accountContract = abi.encodePacked(type(Acc).creationCode, abi.encode(owner)); // Account.constructor
+        bytes32 accountContractHash = keccak256(accountContract);
 
-        // Prevent an astronomically improbable scenario where a legitimate user generates the computed CREATE2 address of address(0)
-        // Max 2 iterations (if the first iteration generates address(0), then the next one should not - collision resistance)
+        // Guaranteed to deploy an address even when the improbable collision happens
         for (uint256 ownerSalt = uint160(owner); accountAddress == address(0); ownerSalt += type(uint160).max) {
             bytes32 salt = bytes32(ownerSalt);
 
-            // @openzeppelin/contracts/utils/Create2.deploy but without address(this).balance call
+            // Skip the current salt when the computed address has some code
+            if (Create2.computeAddress(salt, accountContractHash).code.length > 0) continue;
+
+            // Create2.deploy but without address(this).balance call
             assembly ("memory-safe") {
                 accountAddress := create2(0, add(accountContract, 0x20), mload(accountContract), salt)
                 // if no address was created, and returndata is not empty, bubble any revert thrown by the Account.constructor
@@ -47,9 +51,9 @@ contract AccountFactory is Nonces {
                     revert(p, returndatasize())
                 }
             }
-
-            // Cache owner account
-            if (address(0) != accountAddress) ownerAccounts[owner] = accountAddress;
         }
+
+        // Cache the owner account address
+        ownerAccounts[owner] = accountAddress;
     }
 }

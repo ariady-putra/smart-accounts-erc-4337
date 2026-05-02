@@ -1,5 +1,5 @@
 import { encodeAbiParameters, encodePacked, fromHex, parseGwei, toHex } from "viem";
-import { ACCOUNT, ACCOUNT_FACTORY, ENTRY_POINT, PAYMASTER, SEPOLIA } from "./config.js";
+import { ACCOUNT, ACCOUNT_FACTORY, ENTRY_POINT, SEPOLIA } from "./config.js";
 
 (async () => {
   const create2Account = `0x${ACCOUNT_FACTORY.methodIdentifiers["create2Account(address)"]}${encodeAbiParameters(

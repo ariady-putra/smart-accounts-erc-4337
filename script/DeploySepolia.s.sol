@@ -4,11 +4,11 @@ pragma solidity ^0.8.34;
 import {console} from "forge-std/console.sol";
 import {Script} from "forge-std/Script.sol";
 import {EntryPoint} from "@account-abstraction/contracts/core/EntryPoint.sol";
-import {PaymasterScript} from "./Paymaster.s.sol";
+// import {PaymasterScript} from "./Paymaster.s.sol";
 import {AccountFactoryScript} from "./AccountFactory.s.sol";
 
 contract DeploySepoliaScript is Script {
-    PaymasterScript public pms;
+    // PaymasterScript public pms;
     AccountFactoryScript public afs;
 
     EntryPoint ep;
@@ -19,23 +19,23 @@ contract DeploySepoliaScript is Script {
         sponsor = vm.envAddress("ADDRESS");
 
         ep = EntryPoint(epV09);
-        pms = new PaymasterScript();
+        // pms = new PaymasterScript();
         afs = new AccountFactoryScript();
     }
 
     function run() public {
-        pms.run();
+        // pms.run();
         afs.run();
 
-        address pmAddress = address(pms.pm());
+        // address pmAddress = address(pms.pm());
 
-        vm.startBroadcast(sponsor);
+        // vm.startBroadcast(sponsor);
 
-        if (ep.balanceOf(pmAddress) == 0) {
-            ep.depositTo{value: 0.2 ether}(pmAddress);
-            console.log("Deposit ETH 0.2 to EP for PM account");
-        }
+        // if (ep.balanceOf(pmAddress) == 0) {
+        //     ep.depositTo{value: 0.2 ether}(pmAddress);
+        //     console.log("Deposit ETH 0.2 to EP for PM account");
+        // }
 
-        vm.stopBroadcast();
+        // vm.stopBroadcast();
     }
 }
